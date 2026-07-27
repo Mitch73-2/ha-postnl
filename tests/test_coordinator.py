@@ -6,18 +6,22 @@ import pytest
 
 from custom_components.postnl.const import CONF_INCLUDE_HISTORY, ParcelStatus
 from custom_components.postnl.coordinator import (
-    _DUTCH_MONTHS,
     PostNLCoordinator,
+    _refresh_interval,
+)
+from custom_components.postnl.letters import (
+    _DUTCH_MONTHS,
+    extract_letters,
+    parse_letter_date,
+)
+from custom_components.postnl.parcels import (
     _convert_native_dimensions,
     _delivery_dt,
     _extract_observations,
-    _refresh_interval,
     build_history,
-    extract_letters,
     map_observation_status,
     map_parcel_status,
     normalize_parcel,
-    parse_letter_date,
     sort_parcels_by_ts,
 )
 

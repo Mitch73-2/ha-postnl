@@ -1,3 +1,5 @@
+"""Constants for the postnl integration."""
+
 from enum import StrEnum
 
 from homeassistant.const import Platform
@@ -28,6 +30,8 @@ HISTORY_MAX_EVENTS = 20
 
 
 class ParcelStatus(StrEnum):
+    """ParcelStatus."""
+
     REGISTERED = "registered"
     IN_TRANSIT = "in_transit"
     OUT_FOR_DELIVERY = "out_for_delivery"

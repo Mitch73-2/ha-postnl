@@ -5,12 +5,9 @@ from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import PostNLConfigEntry
-from .const import DOMAIN
 from .device import build_device_info
 
 # A manual refresh is a single API round-trip; HA's per-entity throttling

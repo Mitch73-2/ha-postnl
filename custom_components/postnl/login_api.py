@@ -1,3 +1,5 @@
+"""Login/OAuth API client for the postnl integration."""
+
 import logging
 
 import requests
@@ -8,9 +10,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PostNLLoginAPI:
+    """Thin client for the upstream API."""
+
     base_url: str = "https://login.postnl.nl/101112a0-4a0f-4bbb-8176-2f1b2d370d7c/"
 
     def __init__(self, access_token: str):
+        """Initialize the PostNLLoginAPI."""
         self.client = requests.Session()
         self.client.mount(
             prefix='https://',
@@ -26,6 +31,7 @@ class PostNLLoginAPI:
         }
 
     def userinfo(self):
+        """Return the authenticated user's info."""
         response = self.client.get(self.base_url + "/profiles/oidc/userinfo")
 
         return response.json()

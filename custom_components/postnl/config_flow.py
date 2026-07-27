@@ -1,3 +1,5 @@
+"""Config flow for the postnl integration."""
+
 from __future__ import annotations
 
 import logging
@@ -66,9 +68,12 @@ _DELIVERED_SCHEMA = vol.Schema({
 
 
 class PostNLConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for the postnl integration."""
+
     VERSION = 1
 
     def __init__(self) -> None:
+        """Initialize the config flow."""
         self._username: str = ""
         self._password: str = ""
         self._token: dict | None = None
@@ -76,9 +81,11 @@ class PostNLConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> PostNLOptionsFlowHandler:
+        """Return the options flow handler."""
         return PostNLOptionsFlowHandler()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Handle the initial step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -123,9 +130,11 @@ class PostNLConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
+        """Handle reauthentication on an auth error."""
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Handle the reauth confirmation step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -181,6 +190,7 @@ class PostNLOptionsFlowHandler(OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        """Manage the options."""
         if user_input is not None:
             delivered = user_input.get("delivered", {})
             history = user_input.get("history", {})

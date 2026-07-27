@@ -13,7 +13,6 @@ import pytest
 
 from custom_components.postnl.image import PostNLLetterImage, async_setup_entry
 
-
 _USERINFO = {"account_id": "abc-123", "email": "user@example.com"}
 
 

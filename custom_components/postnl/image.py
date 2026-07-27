@@ -109,6 +109,7 @@ class PostNLLetterImage(CoordinatorEntity[PostNLCoordinator], ImageEntity):
         userinfo: dict[str, Any],
         letter_id: str,
     ) -> None:
+        """Initialize the image entity."""
         CoordinatorEntity.__init__(self, coordinator)
         ImageEntity.__init__(self, hass)
         self._entry = entry
@@ -140,10 +141,12 @@ class PostNLLetterImage(CoordinatorEntity[PostNLCoordinator], ImageEntity):
 
     @property
     def available(self) -> bool:
+        """Return whether the entity is available."""
         return super().available and self._letter() is not None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         # Mirror the per-letter fields the sensor's ``letters`` attribute and
         # the ``postnl_letter_announced`` event already carry, so templates can
         # use whichever surface fits. ``image_url`` is intentionally omitted —
@@ -169,6 +172,7 @@ class PostNLLetterImage(CoordinatorEntity[PostNLCoordinator], ImageEntity):
         super()._handle_coordinator_update()
 
     async def async_image(self) -> bytes | None:
+        """Return the current image bytes."""
         url = (self._letter() or {}).get("image_url")
         if not url:
             return None

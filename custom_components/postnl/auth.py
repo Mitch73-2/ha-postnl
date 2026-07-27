@@ -1,3 +1,5 @@
+"""OAuth2 authentication for the postnl integration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +33,8 @@ _USER_AGENT = (
 
 
 class PostNLAuthError(Exception):
+    """Raised on an API error."""
+
     pass
 
 
@@ -44,7 +48,10 @@ class PostNLInvalidAuth(PostNLAuthError):
 
 
 class PostNLAuth:
+    """OAuth2 session helper bound to a config entry."""
+
     def __init__(self, username: str, password: str) -> None:
+        """Initialize the auth helper."""
         self._username = username
         self._password = password
 
@@ -278,15 +285,18 @@ class AsyncConfigEntryAuth:
     """Manage PostNL tokens stored in a config entry."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize the auth helper."""
         self._hass = hass
         self._entry = entry
         self._lock = asyncio.Lock()
 
     @property
     def access_token(self) -> str:
+        """Return the current access token."""
         return self._entry.data["token"]["access_token"]
 
     async def check_and_refresh_token(self) -> str:
+        """Refresh the access token when it has expired."""
         token = self._entry.data.get("token")
 
         if not token or "access_token" not in token:

@@ -1,3 +1,5 @@
+"""Consumer API client for the postnl integration."""
+
 import logging
 
 import requests
@@ -8,6 +10,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PostNLJouwAPI:
+    """Thin client for the upstream API."""
+
     base_url: str = "https://jouw.postnl.nl/track-and-trace/"
 
     mymail_url: str = "https://jouw.postnl.nl/services/serverdrivenui/api/MyMail/letter"
@@ -29,6 +33,7 @@ class PostNLJouwAPI:
     }
 
     def __init__(self, access_token: str):
+        """Initialize the PostNLJouwAPI."""
         self.client = requests.Session()
         self.client.mount(
             prefix='https://',
@@ -46,6 +51,7 @@ class PostNLJouwAPI:
         }
 
     def track_and_trace(self, key):
+        """Return track & trace details for a shipment."""
         response = self.client.get(
             self.base_url + "/api/trackAndTrace/" + key + "?language=nl",
             timeout=self.timeout,
@@ -54,6 +60,7 @@ class PostNLJouwAPI:
         return response.json()
 
     def letters(self):
+        """Return the MyMail letters overview."""
         response = self.client.get(
             self.mymail_url, headers=self.mymail_headers, timeout=self.timeout
         )

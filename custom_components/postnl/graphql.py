@@ -1,3 +1,5 @@
+"""GraphQL API client for the postnl integration."""
+
 import logging
 
 from gql import Client, gql
@@ -7,10 +9,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PostNLGraphql:
+    """Thin client for the upstream API."""
+
     endpoint: str = "https://jouw.postnl.nl/account/api/graphql"
     client: Client
 
     def __init__(self, access_token: str):
+        """Initialize the PostNLGraphql."""
         self.client = Client(transport=RequestsHTTPTransport(
             url=self.endpoint,
             verify=True,
@@ -22,11 +27,13 @@ class PostNLGraphql:
         ))
 
     def call(self, query: str):
+        """Execute the request and return the parsed response."""
         query = gql(query)
 
         return self.client.execute(query)
 
     def profile(self):
+        """Return the authenticated user's profile."""
         _LOGGER.debug('Fetching profile')
         query = """
             query {
@@ -35,7 +42,7 @@ class PostNLGraphql:
                 __typename
               }
             }
-            
+
             fragment ProfileData on Profile {
               username
               __typename
@@ -47,6 +54,7 @@ class PostNLGraphql:
         return result
 
     def shipments(self):
+        """Return the tracked shipments."""
         _LOGGER.debug('Fetching shipments')
 
         query = """

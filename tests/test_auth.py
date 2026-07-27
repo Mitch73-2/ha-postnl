@@ -13,7 +13,6 @@ import time
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import aiohttp
 import pytest
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 
@@ -23,7 +22,6 @@ from custom_components.postnl.auth import (
     PostNLAuthError,
     PostNLInvalidAuth,
 )
-
 
 # ---------------------------------------------------------------------------
 # Static helpers

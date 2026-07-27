@@ -2,7 +2,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import requests
-
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError

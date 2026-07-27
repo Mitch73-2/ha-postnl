@@ -5,12 +5,14 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -123,6 +125,7 @@ class PostNLIncomingParcelsSensor(CoordinatorEntity[PostNLCoordinator], SensorEn
         async_add_entities: AddEntitiesCallback,
         known_barcodes: set[str] | None = None,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._userinfo = userinfo
         self._async_add_entities = async_add_entities
@@ -133,10 +136,12 @@ class PostNLIncomingParcelsSensor(CoordinatorEntity[PostNLCoordinator], SensorEn
 
     @property
     def native_value(self) -> int:
+        """Return the native value of the sensor."""
         return len(_active_receiver(self.coordinator))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         return {"parcels": _active_receiver(self.coordinator)}
 
     def _handle_coordinator_update(self) -> None:
@@ -182,6 +187,7 @@ class PostNLParcelSensor(CoordinatorEntity[PostNLCoordinator], SensorEntity):
         userinfo: dict[str, Any],
         barcode: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._barcode = barcode
         account_id: str = userinfo.get("account_id", "")
@@ -197,11 +203,13 @@ class PostNLParcelSensor(CoordinatorEntity[PostNLCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> str | None:
+        """Return the native value of the sensor."""
         parcel = self._get_parcel()
         return parcel.get("status") if parcel else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         parcel = self._get_parcel()
         return dict(parcel) if parcel else {}
 
@@ -220,6 +228,7 @@ class PostNLNextDeliverySensor(CoordinatorEntity[PostNLCoordinator], SensorEntit
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_next_delivery"
@@ -242,11 +251,13 @@ class PostNLNextDeliverySensor(CoordinatorEntity[PostNLCoordinator], SensorEntit
 
     @property
     def native_value(self) -> datetime | None:
+        """Return the native value of the sensor."""
         moments = self._delivery_moments()
         return min(dt for dt, _ in moments) if moments else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         moments = self._delivery_moments()
         if not moments:
             return {}
@@ -271,6 +282,7 @@ class PostNLEnRouteToServicePointSensor(CoordinatorEntity[PostNLCoordinator], Se
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_en_route_to_service_point"
@@ -281,10 +293,12 @@ class PostNLEnRouteToServicePointSensor(CoordinatorEntity[PostNLCoordinator], Se
 
     @property
     def native_value(self) -> int:
+        """Return the native value of the sensor."""
         return len(self._get_service_point_parcels())
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         return {"parcels": self._get_service_point_parcels()}
 
 
@@ -302,6 +316,7 @@ class PostNLOutgoingParcelsSensor(CoordinatorEntity[PostNLCoordinator], SensorEn
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_outgoing_parcels"
@@ -312,10 +327,12 @@ class PostNLOutgoingParcelsSensor(CoordinatorEntity[PostNLCoordinator], SensorEn
 
     @property
     def native_value(self) -> int:
+        """Return the native value of the sensor."""
         return len(self._active_sender())
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         return {"parcels": self._active_sender()}
 
 
@@ -333,6 +350,7 @@ class PostNLDeliveredParcelsSensor(CoordinatorEntity[PostNLCoordinator], SensorE
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_delivered_parcels"
@@ -344,10 +362,12 @@ class PostNLDeliveredParcelsSensor(CoordinatorEntity[PostNLCoordinator], SensorE
 
     @property
     def native_value(self) -> int:
+        """Return the native value of the sensor."""
         return len(self._parcels)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         return {"parcels": self._parcels}
 
 
@@ -365,6 +385,7 @@ class PostNLOutgoingDeliveredParcelsSensor(CoordinatorEntity[PostNLCoordinator],
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_outgoing_delivered_parcels"
@@ -376,10 +397,12 @@ class PostNLOutgoingDeliveredParcelsSensor(CoordinatorEntity[PostNLCoordinator],
 
     @property
     def native_value(self) -> int:
+        """Return the native value of the sensor."""
         return len(self._parcels)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         return {"parcels": self._parcels}
 
 
@@ -397,6 +420,7 @@ class PostNLLettersSensor(CoordinatorEntity[PostNLCoordinator], SensorEntity):
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_letters"
@@ -408,10 +432,12 @@ class PostNLLettersSensor(CoordinatorEntity[PostNLCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> int:
+        """Return the native value of the sensor."""
         return len(self._letters)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
         return {
             "unread": sum(1 for letter in self._letters if letter.get("unread")),
             "letters": self._letters,
@@ -437,6 +463,7 @@ class PostNLLastUpdateSensor(CoordinatorEntity[PostNLCoordinator], SensorEntity)
         coordinator: PostNLCoordinator,
         userinfo: dict[str, Any],
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         account_id: str = userinfo.get("account_id", "")
         self._attr_unique_id = f"{account_id}_last_update"

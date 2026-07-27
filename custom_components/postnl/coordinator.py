@@ -1,3 +1,5 @@
+"""Data update coordinator for the postnl integration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,8 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .auth import AsyncConfigEntryAuth
 from .const import (
@@ -44,6 +45,8 @@ def _refresh_interval(entry: ConfigEntry) -> timedelta:
 
 
 class PostNLCoordinator(DataUpdateCoordinator):
+    """Coordinator for the postnl integration."""
+
     data: dict[str, list[dict]]
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -413,6 +416,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
         return history
 
     async def transform_shipment(self, shipment) -> dict:
+        """Transform a raw shipment into the canonical parcel shape."""
         _LOGGER.debug('Updating %s', shipment.get('key'))
 
         receiver_title = (shipment.get('receiverTitle') or '').strip() or None

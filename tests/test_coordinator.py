@@ -1,8 +1,6 @@
 """Tests for the PostNL coordinator helpers and transform_shipment."""
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from unittest.mock import MagicMock
 
 from custom_components.postnl.const import CONF_INCLUDE_HISTORY, ParcelStatus
 from custom_components.postnl.coordinator import (
@@ -24,7 +22,6 @@ from custom_components.postnl.parcels import (
     normalize_parcel,
     sort_parcels_by_ts,
 )
-
 
 # ---------------------------------------------------------------------------
 # _delivery_dt
@@ -1336,8 +1333,8 @@ async def test_transform_shipment_delivered_history_failure_is_non_fatal(hass):
 
 async def test_device_id_resolves_and_caches(hass):
     """_device_id finds the account's device and caches it for later events."""
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
     from homeassistant.helpers import device_registry as dr
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
 
     from custom_components.postnl.const import DOMAIN
 

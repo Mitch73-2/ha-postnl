@@ -2,7 +2,6 @@
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
-
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType

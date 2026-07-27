@@ -267,9 +267,9 @@ def build_history(
 def _convert_native_dimensions(
     native: dict | None,
 ) -> tuple[float | None, dict | None]:
-    """Convert PostNL's native dimensions (g + mm) to the suite-wide canonical
-    shape (kg + cm with a pre-formatted ``text`` string).
+    """Convert PostNL's native dimensions to the suite-wide canonical shape.
 
+    The canonical shape is kg + cm with a pre-formatted ``text`` string.
     PostNL ships ``{height, width, depth, weight}`` in grams + millimetres,
     and calls the long edge ``depth`` rather than ``length``. The canonical
     contract every other carrier in the suite honours is kg + cm + ``length``,

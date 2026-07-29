@@ -98,6 +98,16 @@ def test_map_parcel_status_failed_delivery_today_is_in_transit():
     assert map_parcel_status({"status_message": message}) == ParcelStatus.IN_TRANSIT
 
 
+def test_map_parcel_status_busy_delay_is_in_transit():
+    # Reported in issue #12: a "delivery takes a bit longer due to busyness"
+    # notice is just a delay — still IN_TRANSIT.
+    message = (
+        "Door drukte duurt de bezorging wat langer dan normaal. "
+        "We bezorgen je pakket zo snel mogelijk. "
+    )
+    assert map_parcel_status({"status_message": message}) == ParcelStatus.IN_TRANSIT
+
+
 def test_map_parcel_status_at_pickup_point_for_postnl_punt():
     assert map_parcel_status({"status_message": "Pakket ligt klaar bij PostNL punt"}) == ParcelStatus.AT_PICKUP_POINT
 

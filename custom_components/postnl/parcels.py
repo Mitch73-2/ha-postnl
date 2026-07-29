@@ -45,6 +45,7 @@ _STATUS_PATTERNS: tuple[tuple[str, ParcelStatus], ...] = (
     ("verwacht", ParcelStatus.REGISTERED),
     ("bezorgmoment is bijgewerkt", ParcelStatus.IN_TRANSIT),
     ("lukt vandaag niet", ParcelStatus.IN_TRANSIT),
+    ("duurt de bezorging wat langer", ParcelStatus.IN_TRANSIT),
     ("ontvangen", ParcelStatus.IN_TRANSIT),
     ("gesorteerd", ParcelStatus.IN_TRANSIT),
     ("onderweg", ParcelStatus.IN_TRANSIT),

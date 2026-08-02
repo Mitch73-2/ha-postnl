@@ -19,7 +19,7 @@ you act in one of these areas:
 | consider "fixing" a lint/pattern the skill flags (poll interval, `requests`/sync, inline client) | *Deliberate skill divergences* — don't re-flag |
 | commit, bump, tag, release, or write release notes; add a feature without a test | *Workflow / Commits / Versioning / Testing* |
 
-**API mechanics live in `docs/api/` (local-only, gitignored)** — the GraphQL
+**API mechanics live in `carrier-research/api/postnl/` (private research repo)** — the GraphQL
 shipment list, Track & Trace, MyMail (letters + image bytes) and login endpoints,
 their payload shapes, the Dutch status strings and the `observationCode`
 vocabulary. Do not duplicate them here.
@@ -71,7 +71,7 @@ entities. Runtime-only; do not move it back into a platform.
 - **Letter image URLs require auth** — the `PostNLLetterImage` entity fetches bytes
   server-side and serves them through HA's authenticated image proxy. **Do not
   switch to a redirect scheme.** MyMail also needs app-identification headers that
-  occasionally need bumping when PostNL ships a new app version (see `docs/api/`).
+  occasionally need bumping when PostNL ships a new app version (see `carrier-research/api/postnl/`).
 - `postnl_letter_announced` fires per new letter; `_known_letter_ids` mirrors
   `_known_state`, reset only after a successful letters fetch.
 

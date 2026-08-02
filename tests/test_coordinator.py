@@ -23,6 +23,13 @@ from custom_components.postnl.parcels import (
     sort_parcels_by_ts,
 )
 
+from .payloads import (
+    letter_sample,
+    observations,
+    sdui_payload,
+    track_and_trace,
+)
+
 # ---------------------------------------------------------------------------
 # _delivery_dt
 # ---------------------------------------------------------------------------
@@ -321,20 +328,8 @@ def test_dutch_months_dict_has_twelve_months():
 # ---------------------------------------------------------------------------
 
 
-def _sdui_payload(letters: list[dict]) -> dict:
-    return {
-        "screen": {
-            "sections": [
-                {"type": "List", "items": [{"type": "Text"}]},  # ignored
-                {"type": "Grid", "items": letters},
-                {"type": "List", "items": [{"type": "Default"}]},  # ignored
-            ]
-        }
-    }
-
-
 def test_extract_letters_picks_up_letter_items():
-    payload = _sdui_payload([
+    payload = sdui_payload([
         {
             "type": "Letter",
             "editId": "ABC1",
@@ -361,7 +356,7 @@ def test_extract_letters_picks_up_letter_items():
 
 
 def test_extract_letters_ignores_non_letter_items():
-    payload = _sdui_payload([{"type": "TextListItem", "title": "Header"}])
+    payload = sdui_payload([{"type": "TextListItem", "title": "Header"}])
     assert extract_letters(payload, today=_today()) == []
 
 
@@ -372,7 +367,7 @@ def test_extract_letters_returns_empty_for_missing_screen():
 
 
 def test_extract_letters_handles_missing_image_block():
-    payload = _sdui_payload([
+    payload = sdui_payload([
         {"type": "Letter", "editId": "X", "title": "16 juni", "isUnread": False},
     ])
     letters = extract_letters(payload, today=_today())
@@ -879,22 +874,12 @@ async def test_fire_outgoing_no_event_when_unchanged(hass):
 # ---------------------------------------------------------------------------
 
 
-def _letter(letter_id: str, title: str = "16 juni", *, unread: bool = True, image_url: str | None = "https://example.com/a.jpg", date: str | None = "2026-06-16") -> dict:
-    return {
-        "id": letter_id,
-        "title": title,
-        "date": date,
-        "unread": unread,
-        "image_url": image_url,
-    }
-
-
 async def test_fire_letter_events_silent_on_first_refresh(hass):
     coordinator = _make_coordinator(hass)
     captured = _capture(hass, "postnl_letter_announced")
 
     # _known_letter_ids is None on a fresh coordinator → suppress.
-    coordinator._fire_letter_events([_letter("ABC1"), _letter("ABC2")])
+    coordinator._fire_letter_events([letter_sample("ABC1"), letter_sample("ABC2")])
     await hass.async_block_till_done()
 
     assert captured == []
@@ -905,7 +890,7 @@ async def test_fire_letter_events_emits_announced_for_new_id(hass):
     coordinator._known_letter_ids = {"ABC1"}
     captured = _capture(hass, "postnl_letter_announced")
 
-    coordinator._fire_letter_events([_letter("ABC1"), _letter("NEW", title="17 juni")])
+    coordinator._fire_letter_events([letter_sample("ABC1"), letter_sample("NEW", title="17 juni")])
     await hass.async_block_till_done()
 
     assert len(captured) == 1
@@ -921,7 +906,7 @@ async def test_fire_letter_events_no_event_when_letter_unchanged(hass):
     coordinator._known_letter_ids = {"ABC1"}
     captured = _capture(hass, "postnl_letter_announced")
 
-    coordinator._fire_letter_events([_letter("ABC1")])
+    coordinator._fire_letter_events([letter_sample("ABC1")])
     await hass.async_block_till_done()
 
     assert captured == []
@@ -932,7 +917,7 @@ async def test_fire_letter_events_skips_letters_without_id(hass):
     coordinator._known_letter_ids = set()
     captured = _capture(hass, "postnl_letter_announced")
 
-    coordinator._fire_letter_events([_letter("")])
+    coordinator._fire_letter_events([letter_sample("")])
     await hass.async_block_till_done()
 
     assert captured == []
@@ -1157,16 +1142,8 @@ def test_extract_observations_empty_when_neither_present():
 # ---------------------------------------------------------------------------
 
 
-_OBSERVATIONS = [
-    {"observationDate": "2026-05-21T14:41:45.943+02:00", "observationCode": "A01", "description": "Pakket is nog niet ontvangen"},
-    {"observationDate": "2026-05-21T20:22:11+02:00", "observationCode": "B01", "description": "Pakket is ontvangen door PostNL"},
-    {"observationDate": "2026-05-22T10:06:45+02:00", "observationCode": "J01", "description": "Zending is gesorteerd"},
-    {"observationDate": "2026-05-22T11:01:21+02:00", "observationCode": "J05", "description": "Bezorger is onderweg"},
-]
-
-
 def test_build_history_entry_shape_and_order():
-    history = build_history(_OBSERVATIONS)
+    history = build_history(observations())
     assert [e["status"] for e in history] == [
         ParcelStatus.REGISTERED,
         ParcelStatus.IN_TRANSIT,
@@ -1180,7 +1157,7 @@ def test_build_history_entry_shape_and_order():
 
 
 def test_build_history_sorts_unsorted_input_oldest_first():
-    history = build_history(list(reversed(_OBSERVATIONS)))
+    history = build_history(list(reversed(observations())))
     assert history[0]["status"] == ParcelStatus.REGISTERED
     assert history[-1]["status"] == ParcelStatus.OUT_FOR_DELIVERY
 
@@ -1197,7 +1174,7 @@ def test_build_history_caps_to_max_events():
 
 
 def test_build_history_respects_custom_cap():
-    assert len(build_history(_OBSERVATIONS, max_events=2)) == 2
+    assert len(build_history(observations(), max_events=2)) == 2
 
 
 def test_build_history_unmapped_code_is_null_status():
@@ -1266,19 +1243,9 @@ def _make_history_coordinator(hass, *, include_history: bool):
     return coordinator
 
 
-_ACTIVE_TT = {
-    "colli": {
-        "3SABC": {
-            "statusPhase": {"message": "Bezorger is onderweg"},
-            "analyticsInfo": {"allObservations": _OBSERVATIONS},
-        }
-    }
-}
-
-
 async def test_transform_shipment_builds_history_when_option_on(hass):
     coordinator = _make_history_coordinator(hass, include_history=True)
-    coordinator.jouw_api.track_and_trace = MagicMock(return_value=_ACTIVE_TT)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value=track_and_trace())
     shipment = {"key": "K", "barcode": "3SABC", "title": "Brand", "delivered": False}
     parcel = await coordinator.transform_shipment(shipment)
     assert parcel["history"] is not None
@@ -1287,7 +1254,7 @@ async def test_transform_shipment_builds_history_when_option_on(hass):
 
 async def test_transform_shipment_no_history_when_option_off(hass):
     coordinator = _make_history_coordinator(hass, include_history=False)
-    coordinator.jouw_api.track_and_trace = MagicMock(return_value=_ACTIVE_TT)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value=track_and_trace())
     shipment = {"key": "K", "barcode": "3SABC", "title": "Brand", "delivered": False}
     parcel = await coordinator.transform_shipment(shipment)
     assert parcel["history"] is None
@@ -1295,7 +1262,7 @@ async def test_transform_shipment_no_history_when_option_off(hass):
 
 async def test_transform_shipment_delivered_fetches_history_when_option_on(hass):
     coordinator = _make_history_coordinator(hass, include_history=True)
-    coordinator.jouw_api.track_and_trace = MagicMock(return_value=_ACTIVE_TT)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value=track_and_trace())
     shipment = {
         "key": "K", "barcode": "3SABC", "title": "Brand", "delivered": True,
         "deliveredTimeStamp": "2026-05-22T12:00:00Z",
@@ -1388,7 +1355,7 @@ async def test_device_id_none_when_no_device(hass):
 async def test_transform_shipment_delivered_history_cached_per_barcode(hass):
     """A delivered parcel's history is fetched once, then served from cache."""
     coordinator = _make_history_coordinator(hass, include_history=True)
-    coordinator.jouw_api.track_and_trace = MagicMock(return_value=_ACTIVE_TT)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value=track_and_trace())
     shipment = {
         "key": "K", "barcode": "3SABC", "title": "Brand", "delivered": True,
         "deliveredTimeStamp": "2026-05-22T12:00:00Z",
@@ -1405,7 +1372,7 @@ async def test_transform_shipment_delivered_history_failure_not_cached(hass):
 
     coordinator = _make_history_coordinator(hass, include_history=True)
     coordinator.jouw_api.track_and_trace = MagicMock(
-        side_effect=[requests.exceptions.ConnectionError("boom"), _ACTIVE_TT]
+        side_effect=[requests.exceptions.ConnectionError("boom"), track_and_trace()]
     )
     shipment = {
         "key": "K", "barcode": "3SABC", "title": "Brand", "delivered": True,

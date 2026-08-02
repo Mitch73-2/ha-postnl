@@ -13,6 +13,8 @@ import pytest
 
 from custom_components.postnl.image import PostNLLetterImage, async_setup_entry
 
+from .payloads import letter_sample
+
 _USERINFO = {"account_id": "abc-123", "email": "user@example.com"}
 
 
@@ -38,7 +40,9 @@ def _entry(coordinator: MagicMock, userinfo: dict | None = None) -> MagicMock:
 
 def _letter(letter_id: str = "L1", *, title: str = "16 juni",
             image_url: str | None = "https://example.com/img1") -> dict:
-    return {"id": letter_id, "title": title, "image_url": image_url, "unread": False}
+    return letter_sample(
+        letter_id, title, unread=False, image_url=image_url, date=None
+    )
 
 
 # ---------------------------------------------------------------------------

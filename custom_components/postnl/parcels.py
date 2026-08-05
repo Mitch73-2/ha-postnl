@@ -318,7 +318,12 @@ def normalize_parcel(parcel: dict, *, history: list[dict] | None = None) -> dict
     return {
         "carrier": "PostNL",
         "barcode": parcel.get("barcode"),
-        "sender": parcel.get("source_display_name"),
+        # The GraphQL ``title`` (kept as ``name``) is the sender in every
+        # observed payload. ``source_display_name`` is deliberately *not* the
+        # first choice: for parcels visible through shared visibility in the
+        # PostNL app it holds the sharing account holder's name rather than the
+        # shop (#13). It stays as a last-resort fallback only.
+        "sender": parcel.get("name") or parcel.get("source_display_name"),
         "receiver": parcel.get("receiver"),
         "status": map_parcel_status(parcel),
         "raw_status": parcel.get("status_message"),

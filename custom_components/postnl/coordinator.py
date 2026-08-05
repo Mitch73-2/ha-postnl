@@ -420,6 +420,14 @@ class PostNLCoordinator(DataUpdateCoordinator):
         _LOGGER.debug('Updating %s', shipment.get('key'))
 
         receiver_title = (shipment.get('receiverTitle') or '').strip() or None
+        # ``title`` may arrive with a leading space, like ``receiverTitle``.
+        title = (shipment.get('title') or '').strip() or None
+        # ``sourceDisplayName`` is *not* the sender: it is the display name of
+        # the account a shipment is shared from (paired with
+        # ``sourceAccountId``). It is null for your own parcels and holds the
+        # housemate's name for parcels you only see through shared visibility
+        # in the PostNL app (#13). Kept raw so that signal survives.
+        source_display_name = (shipment.get('sourceDisplayName') or '').strip() or None
 
         try:
             if shipment.get('delivered'):
@@ -437,16 +445,12 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 return normalize_parcel({
                     "key": shipment.get('key'),
                     "barcode": shipment.get('barcode'),
-                    "name": shipment.get('title'),
+                    "name": title,
                     "url": shipment.get('detailsUrl'),
                     "shipment_type": shipment.get('shipmentType'),
                     "receiver_title": receiver_title,
                     "receiver": receiver_title,
-                    "source_display_name": (
-                        (shipment.get('sourceDisplayName') or '').strip()
-                        or (shipment.get('title') or '').strip()
-                        or None
-                    ),
+                    "source_display_name": source_display_name,
                     "status_message": "Pakket is bezorgd",
                     "delivered": shipment.get('delivered'),
                     "delivery_date": shipment.get('deliveredTimeStamp'),
@@ -531,7 +535,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
             parcel = normalize_parcel({
                 "key": shipment.get('key'),
                 "barcode": shipment.get('barcode'),
-                "name": shipment.get('title'),
+                "name": title,
                 "url": shipment.get('detailsUrl'),
                 "shipment_type": shipment.get('shipmentType'),
                 "receiver_title": receiver_title,
@@ -540,11 +544,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 # ``receiverTitle`` is the GraphQL fallback for when T&T
                 # doesn't have it yet (first poll after registration).
                 "receiver": recipient_name or receiver_title,
-                "source_display_name": (
-                        (shipment.get('sourceDisplayName') or '').strip()
-                        or (shipment.get('title') or '').strip()
-                        or None
-                    ),
+                "source_display_name": source_display_name,
                 "status_message": status_message,
                 "delivered": shipment.get('delivered'),
                 "delivery_date": shipment.get('deliveredTimeStamp'),

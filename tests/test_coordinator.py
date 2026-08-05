@@ -167,6 +167,33 @@ def test_normalize_parcel_canonical_top_level_keys():
     assert parcel["raw"]["status_message"] == "Pakket is onderweg"
 
 
+def test_normalize_parcel_sender_prefers_name_over_source_display_name():
+    # #13: for a parcel visible through shared visibility in the PostNL app,
+    # ``sourceDisplayName`` holds the sharing housemate's name, not the shop.
+    # ``name`` (the GraphQL title) is the shop in every observed payload.
+    parcel = normalize_parcel({
+        "barcode": "AAAA1111111111",
+        "name": "Shop One",
+        "source_display_name": "Account Owner A",
+        "delivered": False,
+        "status_message": "Pakket is onderweg",
+    })
+    assert parcel["sender"] == "Shop One"
+    # The shared-from account stays visible under raw.
+    assert parcel["raw"]["source_display_name"] == "Account Owner A"
+
+
+def test_normalize_parcel_sender_falls_back_to_source_display_name():
+    parcel = normalize_parcel({
+        "barcode": "3SXYZ",
+        "name": None,
+        "source_display_name": "Bol.com",
+        "delivered": False,
+        "status_message": "Pakket is onderweg",
+    })
+    assert parcel["sender"] == "Bol.com"
+
+
 def test_normalize_parcel_pickup_detected_for_service_point():
     parcel = normalize_parcel({
         "barcode": "X",
@@ -406,8 +433,56 @@ async def test_transform_shipment_short_circuits_for_delivered(hass):
     assert parcel["delivered"] is True
     assert parcel["status"] == ParcelStatus.DELIVERED
     assert parcel["raw_status"] == "Pakket is bezorgd"
+    # #13: the title wins over sourceDisplayName on the delivered path too.
+    assert parcel["sender"] == "Online Retailer"
+    assert parcel["raw"]["source_display_name"] == "Brand"
     # No track_and_trace call should be made for delivered shipments
     coordinator.jouw_api.track_and_trace.assert_not_called()
+
+
+async def test_transform_shipment_sender_ignores_shared_visibility_name(hass):
+    # #13: housemates who share parcel visibility each see the other's parcels;
+    # sourceDisplayName then holds the other account holder's name. The sender
+    # must still be the shop, and the title's leading space must be stripped.
+    coordinator = _make_coordinator(hass)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value={
+        "colli": {
+            "AAAA1111111111": {"statusPhase": {"message": "Pakket is onderweg"}}
+        }
+    })
+    shipment = {
+        "key": "K13",
+        "barcode": "AAAA1111111111",
+        "title": " Shop One",
+        "receiverTitle": "Account Owner A",
+        "sourceAccountId": "acct-a",
+        "sourceDisplayName": "Account Owner A",
+        "delivered": False,
+    }
+    parcel = await coordinator.transform_shipment(shipment)
+    assert parcel["sender"] == "Shop One"
+    assert parcel["raw"]["name"] == "Shop One"
+    assert parcel["raw"]["source_display_name"] == "Account Owner A"
+
+
+async def test_transform_shipment_source_display_name_is_null_for_own_parcels(hass):
+    # PostNL leaves sourceDisplayName null unless the parcel is shared; the
+    # raw field must not be back-filled with the title (#13).
+    coordinator = _make_coordinator(hass)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value={
+        "colli": {"3SOWN": {"statusPhase": {"message": "Pakket is onderweg"}}}
+    })
+    shipment = {
+        "key": "K14",
+        "barcode": "3SOWN",
+        "title": "Shop Two",
+        "sourceAccountId": None,
+        "sourceDisplayName": None,
+        "delivered": False,
+    }
+    parcel = await coordinator.transform_shipment(shipment)
+    assert parcel["sender"] == "Shop Two"
+    assert parcel["raw"]["source_display_name"] is None
 
 
 async def test_transform_shipment_fetches_planned_window_from_route_information(hass):

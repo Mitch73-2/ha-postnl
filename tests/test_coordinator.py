@@ -2,7 +2,12 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-from custom_components.postnl.const import CONF_INCLUDE_HISTORY, ParcelStatus
+from custom_components.postnl.const import (
+    CAPABILITIES,
+    CONF_INCLUDE_HISTORY,
+    KNOWN_CAPABILITIES,
+    ParcelStatus,
+)
 from custom_components.postnl.coordinator import (
     PostNLCoordinator,
     _refresh_interval,
@@ -1505,3 +1510,13 @@ async def test_transform_shipment_falls_back_to_shipment_fields_on_tt_failure(ha
     assert parcel["barcode"] == "3SABC"
     assert parcel["planned_from"] == "2026-06-17T14:00:00Z"
     assert parcel["status"] == ParcelStatus.UNKNOWN
+
+
+def test_capabilities_are_known_values():
+    """A typo here would silently misreport this carrier on the docs site."""
+    assert CAPABILITIES <= KNOWN_CAPABILITIES
+
+
+def test_capabilities_omit_pickup_point():
+    """PostNL never names the actual service point — pickup_point stays None."""
+    assert "pickup_point" not in CAPABILITIES

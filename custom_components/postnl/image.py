@@ -193,6 +193,12 @@ class PostNLLetterImage(CoordinatorEntity[PostNLCoordinator], ImageEntity):
                 jouw_api.image, url
             )
         except Exception as err:  # noqa: BLE001 - never let a bad image break the entity
+            # This also catches ConfigEntryAuthFailed from async_get_jouw_api()
+            # above. That's intentional, not an oversight: HA's image entity
+            # contract doesn't let async_image() raise anything but
+            # CancelledError/TimeoutError/ImageContentTypeError. A hard auth
+            # failure here is silently deferred to the next poll, which is the
+            # one place still allowed to escalate it into reauth.
             _LOGGER.warning(
                 "Could not fetch PostNL letter image %s: %s", self._letter_id, err
             )

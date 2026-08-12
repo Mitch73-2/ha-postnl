@@ -59,14 +59,18 @@ entities. Runtime-only; do not move it back into a platform.
 - **API clients are reused across polls** — rebuilt only when the access token
   changes (`_api_token`); each owns a `requests.Session` connection pool that would
   otherwise leak every poll.
-- **Anything that calls `jouw_api` outside `_async_update_data` must go through
+- **Anything that calls `jouw_api` outside the poll cycle must go through
   `coordinator.async_get_jouw_api()`, never read `coordinator.jouw_api` directly.**
-  That poll method's own token-refresh-then-maybe-rebuild logic now lives in
-  `async_get_jouw_api()`; `_async_update_data` just awaits it. `PostNLLetterImage.async_image()`
-  is the reason this exists — it runs on demand, whenever a client requests the
-  photo, independently of the poll cycle, so `jouw_api`'s baked-in bearer token can
-  have expired since the last poll (30 min default interval; PostNL's own access
-  tokens are not guaranteed to live that long) — reading the cached client directly
+  (`_delivered_history` and `transform_shipment` read it directly too, but only
+  ever run synchronously inside `_async_update_data`'s own call chain, right after
+  that method's refresh — they're part of the poll cycle, not an exception to this
+  rule.) The refresh-then-maybe-rebuild logic used to live inline in
+  `_async_update_data`; it now lives in `async_get_jouw_api()`, which
+  `_async_update_data` just awaits. `PostNLLetterImage.async_image()` is the reason
+  this exists — it runs on demand, whenever a client requests the photo,
+  independently of the poll cycle, so `jouw_api`'s baked-in bearer token can have
+  expired since the last poll (30 min default interval; PostNL's own access tokens
+  are not guaranteed to live that long) — reading the cached client directly
   produced a 401 on every fetch until the next poll happened to refresh it.
 - `aiohttp.ClientError` is not caught in the coordinator (wrapped automatically);
   `requests` errors *are* caught (executor jobs re-raise them).

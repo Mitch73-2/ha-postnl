@@ -510,6 +510,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
             recipient_name: str | None = None
             native_dimensions: dict | None = None
             history: list[dict] | None = None
+            observations: list[dict] = []
 
             if colli:
                 _LOGGER.debug("Colli details found for shipment %s: %s", shipment['key'], colli)
@@ -533,13 +534,13 @@ class PostNLCoordinator(DataUpdateCoordinator):
                     colli.get('recipient', {}).get('names', {}).get('personName')
                 )
                 native_dimensions = (colli.get('details') or {}).get('dimensions')
-                # The active T&T call already carries the timeline; only build
-                # it when the opt-in option is on.
-                history = (
-                    build_history(_extract_observations(colli))
-                    if self._include_history
-                    else None
-                )
+                # The active T&T call already carries the observation list —
+                # extracted unconditionally so map_parcel_status can prefer
+                # the stable observationCode vocabulary over status_message's
+                # brittle free text (see parcels.py). The opt-in option only
+                # gates whether the full timeline is *exposed* on `history`.
+                observations = _extract_observations(colli)
+                history = build_history(observations) if self._include_history else None
             else:
                 _LOGGER.debug("Barcode not found in colli details for shipment %s.", shipment['key'])
                 planned_date = shipment.get('deliveryWindowFrom')
@@ -560,6 +561,9 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 "receiver": recipient_name or receiver_title,
                 "source_display_name": source_display_name,
                 "status_message": status_message,
+                # Feeds map_parcel_status's observationCode-first status
+                # derivation (parcels.py); empty when there's no colli.
+                "observations": observations,
                 "delivered": shipment.get('delivered'),
                 "delivery_date": shipment.get('deliveredTimeStamp'),
                 "delivery_address_type": shipment.get('deliveryAddressType'),

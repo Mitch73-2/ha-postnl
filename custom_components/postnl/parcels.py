@@ -23,15 +23,20 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-# PostNL's status comes from two signals:
-#   - shipment.delivered (bool, GraphQL) — terminal indicator
-#   - colli.statusPhase.message (Track & Trace) — Dutch human-readable string
+# PostNL's status comes from three signals, tried in this order:
+#   - shipment.delivered (bool, GraphQL) — terminal indicator, always wins
+#   - colli.analyticsInfo.allObservations[].observationCode — stable vocabulary
+#     (see _OBSERVATION_CODE_MAP below); preferred whenever present
+#   - colli.statusPhase.message (Track & Trace) — Dutch human-readable string;
+#     fallback for when observation data is absent or inconclusive
 #
 # statusPhase.message is not under an API contract: PostNL changes the wording
-# at will. So we substring-match against the meaningful subphrase rather than
-# look up against a fixed enum. Order matters — first match wins, so the more
-# specific patterns must come before the broader ones (e.g. "wordt vandaag
-# bezorgd" before "bezorgd").
+# at will (five separate "unrecognised status" issues have been the same root
+# cause — a new phrasing slips past the pattern list). observationCode doesn't
+# have that failure mode, which is why it now takes priority; the substring
+# patterns remain as the fallback path. Order matters — first match wins, so
+# the more specific patterns must come before the broader ones (e.g. "wordt
+# vandaag bezorgd" before "bezorgd").
 _STATUS_PATTERNS: tuple[tuple[str, ParcelStatus], ...] = (
     ("ligt klaar bij postnl punt", ParcelStatus.AT_PICKUP_POINT),
     ("afgeleverd op postnl punt", ParcelStatus.AT_PICKUP_POINT),
@@ -134,14 +139,24 @@ def map_parcel_status(parcel: dict) -> ParcelStatus:
     """Map a PostNL parcel dict to a canonical :class:`ParcelStatus`.
 
     ``parcel`` is the intermediate dict built by :meth:`transform_shipment`
-    with at least ``delivered`` (bool) and ``status_message`` (str) populated.
-    The ``delivered`` flag from GraphQL is authoritative and short-circuits to
-    :attr:`ParcelStatus.DELIVERED`. Anything that does not match any pattern
-    is reported as :attr:`ParcelStatus.UNKNOWN` and surfaced once at info
-    level so users can open an issue to extend the map.
+    with at least ``delivered`` (bool) and ``status_message`` (str) populated,
+    plus the optional ``observations`` list (raw Track & Trace observations —
+    present whenever the active-path T&T call returned a ``colli``,
+    independent of the opt-in history option). The ``delivered`` flag from
+    GraphQL is authoritative and short-circuits to :attr:`ParcelStatus.DELIVERED`.
+    Next, :func:`derive_observation_status` is tried — the stable
+    ``observationCode`` vocabulary, when it has anything to say. Only when
+    that comes back empty (no observations, or none recognised) do we fall
+    back to substring-matching ``status_message``. Anything that does not
+    match any pattern is reported as :attr:`ParcelStatus.UNKNOWN` and
+    surfaced once at info level so users can open an issue to extend the map.
     """
     if parcel.get("delivered"):
         return ParcelStatus.DELIVERED
+
+    observation_status = derive_observation_status(parcel.get("observations"))
+    if observation_status is not None:
+        return observation_status
 
     # PostNL writes the pickup-point phrase with a hyphen ("PostNL-punt"),
     # not a space (#16) — normalise so the "postnl punt" patterns below
@@ -201,6 +216,76 @@ def map_observation_status(
     return None
 
 
+def _order_observations(observations: list[dict] | None) -> list[tuple]:
+    """Sort raw observations oldest → newest into ``(timestamp, code, description)``.
+
+    Entries with an unparseable timestamp keep their original order, appended
+    after the parseable ones — shared by :func:`build_history` and
+    :func:`derive_observation_status` so both walk the exact same order.
+    """
+    parseable: list[tuple[datetime, tuple]] = []
+    unparseable: list[tuple] = []
+    for obs in observations or []:
+        timestamp = obs.get("observationDate")
+        if not timestamp:
+            continue
+        record = (timestamp, obs.get("observationCode"), obs.get("description"))
+        dt = _parse_iso(timestamp)
+        if dt is None:
+            unparseable.append(record)
+        else:
+            parseable.append((dt, record))
+    parseable.sort(key=lambda item: item[0])
+    return [record for _, record in parseable] + unparseable
+
+
+def _walk_milestones(
+    ordered: list[tuple],
+) -> tuple[list[tuple[str, ParcelStatus | None, str | None]], ParcelStatus]:
+    """Walk ordered observations applying the milestone/meta carry-forward rule.
+
+    Returns each record's derived status alongside the final stage reached —
+    the shared core behind :func:`build_history` (needs every entry) and
+    :func:`derive_observation_status` (needs only the final stage). See
+    :func:`build_history` for what "carry-forward" means and why.
+    """
+    last_status: ParcelStatus = ParcelStatus.REGISTERED
+    entries: list[tuple[str, ParcelStatus | None, str | None]] = []
+    for timestamp, code, description in ordered:
+        status = map_observation_status(code, description)
+        if status is not None:
+            last_status = status
+        elif code in _OBSERVATION_META_CODES:
+            status = last_status
+        # else: unmapped → leave None (map_observation_status already warned)
+        entries.append((timestamp, status, description))
+    return entries, last_status
+
+
+def derive_observation_status(observations: list[dict] | None) -> ParcelStatus | None:
+    """Return the parcel's current stage derived from ``observationCode`` history.
+
+    Applies the same milestone/meta carry-forward as :func:`build_history` —
+    so a stray notification code (ETA recalc, ...) never becomes the answer —
+    but returns only the final stage rather than a full timeline. This runs
+    on every poll, independent of the opt-in :data:`CONF_INCLUDE_HISTORY`
+    option: that option only gates whether the full timeline is *exposed* on
+    ``history``, not whether the underlying observations are consulted.
+
+    Returns ``None`` — signalling "fall back to text matching" — when there
+    are no observations at all, or when every observation in the list is one
+    we don't recognise (no milestone, no known meta code): defaulting to the
+    ``REGISTERED`` baseline in that case would be a guess dressed as data.
+    """
+    ordered = _order_observations(observations)
+    if not ordered:
+        return None
+    entries, last_status = _walk_milestones(ordered)
+    if not any(status is not None for _, status, _ in entries):
+        return None
+    return last_status
+
+
 def _extract_observations(colli: dict) -> list[dict]:
     """Return the status-event list from a colli object, oldest-first preferred.
 
@@ -231,40 +316,19 @@ def build_history(
     while the same code earlier (just after sorting) reads ``in_transit``.
     Genuine milestones drive the status and only a real delivery delay (G/T)
     steps back to ``in_transit``. Unmapped codes stay ``null`` (+ warning).
-    """
-    parseable: list[tuple[datetime, tuple]] = []
-    unparseable: list[tuple] = []
-    for obs in observations or []:
-        timestamp = obs.get("observationDate")
-        if not timestamp:
-            continue
-        record = (timestamp, obs.get("observationCode"), obs.get("description"))
-        dt = _parse_iso(timestamp)
-        if dt is None:
-            unparseable.append(record)
-        else:
-            parseable.append((dt, record))
-    parseable.sort(key=lambda item: item[0])
-    ordered = [record for _, record in parseable] + unparseable
 
-    history: list[dict] = []
-    # A parcel that appears in track-trace has, at minimum, been pre-announced,
-    # so the implicit baseline stage is REGISTERED. This is what a meta event
-    # (e.g. "Voorgemelde zending verrijkt") inherits when it lands before the
-    # first real milestone, instead of showing a bare null.
-    last_status: ParcelStatus | None = ParcelStatus.REGISTERED
-    for timestamp, code, description in ordered:
-        status = map_observation_status(code, description)
-        if status is not None:
-            last_status = status
-        elif code in _OBSERVATION_META_CODES:
-            # Known notification/admin event — show the stage the parcel was
-            # already in rather than inventing a (backwards) movement.
-            status = last_status
-        # else: unmapped → leave None (map_observation_status already warned)
-        history.append(
-            {"timestamp": timestamp, "status": status, "raw_status": description}
-        )
+    A parcel that appears in track-trace has, at minimum, been pre-announced,
+    so the implicit baseline stage is REGISTERED (:func:`_walk_milestones`'s
+    starting point) — this is what a meta event (e.g. "Voorgemelde zending
+    verrijkt") inherits when it lands before the first real milestone,
+    instead of showing a bare null.
+    """
+    ordered = _order_observations(observations)
+    entries, _ = _walk_milestones(ordered)
+    history = [
+        {"timestamp": timestamp, "status": status, "raw_status": description}
+        for timestamp, status, description in entries
+    ]
     return history[-max_events:]
 
 

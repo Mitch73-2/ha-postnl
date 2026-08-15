@@ -22,6 +22,7 @@ from custom_components.postnl.parcels import (
     _delivery_dt,
     _extract_observations,
     build_history,
+    derive_observation_status,
     map_observation_status,
     map_parcel_status,
     normalize_parcel,
@@ -143,6 +144,67 @@ def test_map_parcel_status_literal_unknown_is_recognised(caplog):
     # UNKNOWN without the "help us map it" warning (#9).
     assert map_parcel_status({"status_message": "Unknown"}) == ParcelStatus.UNKNOWN
     assert "issues/new" not in caplog.text
+
+
+def test_map_parcel_status_prefers_observation_code_over_text(caplog):
+    # hki-parcels-card discussion #17: "Bezorger is onderweg" is a different
+    # word order from the "onderweg naar de bezorger" / "... bezorgadres"
+    # patterns, so it falls through to the generic "onderweg" -> IN_TRANSIT.
+    # The observationCode (J05) doesn't have that word-order failure mode and
+    # must win.
+    parcel = {
+        "status_message": "Bezorger is onderweg",
+        "observations": [
+            {"observationDate": "2026-05-22T11:01:21+02:00", "observationCode": "J05", "description": "Bezorger is onderweg"},
+        ],
+    }
+    assert map_parcel_status(parcel) == ParcelStatus.OUT_FOR_DELIVERY
+    assert "issues/new" not in caplog.text  # resolved — no "unrecognised" warning
+
+
+def test_map_parcel_status_falls_back_to_text_when_no_observations():
+    parcel = {"status_message": "Pakket wordt vandaag bezorgd", "observations": []}
+    assert map_parcel_status(parcel) == ParcelStatus.OUT_FOR_DELIVERY
+
+
+def test_map_parcel_status_falls_back_to_text_when_observations_all_unmapped():
+    parcel = {
+        "status_message": "Pakket wordt vandaag bezorgd",
+        "observations": [
+            {"observationDate": "2026-05-22T11:01:21+02:00", "observationCode": "ZZ7", "description": "iets nieuws"},
+        ],
+    }
+    assert map_parcel_status(parcel) == ParcelStatus.OUT_FOR_DELIVERY
+
+
+# ---------------------------------------------------------------------------
+# derive_observation_status
+# ---------------------------------------------------------------------------
+
+
+def test_derive_observation_status_none_for_no_observations():
+    assert derive_observation_status(None) is None
+    assert derive_observation_status([]) is None
+
+
+def test_derive_observation_status_none_when_all_unmapped():
+    observations = [
+        {"observationDate": "2026-05-22T11:01:21+02:00", "observationCode": "ZZ7", "description": "iets nieuws"},
+    ]
+    assert derive_observation_status(observations) is None
+
+
+def test_derive_observation_status_returns_last_milestone():
+    assert derive_observation_status(observations()) == ParcelStatus.OUT_FOR_DELIVERY
+
+
+def test_derive_observation_status_meta_only_returns_registered_baseline():
+    # A meta code with no milestone yet is still "known" (just not a movement
+    # stage), so the registered baseline is confident, not a guess.
+    observations = [
+        {"observationDate": "2026-05-10T21:06:41+02:00", "observationCode": "A98", "description": "Voorgemelde zending verrijkt."},
+    ]
+    assert derive_observation_status(observations) == ParcelStatus.REGISTERED
 
 
 # ---------------------------------------------------------------------------
@@ -1336,6 +1398,18 @@ async def test_transform_shipment_builds_history_when_option_on(hass):
     parcel = await coordinator.transform_shipment(shipment)
     assert parcel["history"] is not None
     assert parcel["history"][-1]["status"] == ParcelStatus.OUT_FOR_DELIVERY
+
+
+async def test_transform_shipment_status_uses_observation_code_regardless_of_history_option(hass):
+    # The observationCode-derived status must not depend on the opt-in
+    # history option — only whether the `history` attribute is exposed does.
+    coordinator = _make_history_coordinator(hass, include_history=False)
+    coordinator.jouw_api.track_and_trace = MagicMock(return_value=track_and_trace())
+    shipment = {"key": "K", "barcode": "3SABC", "title": "Brand", "delivered": False}
+    parcel = await coordinator.transform_shipment(shipment)
+    assert parcel["history"] is None
+    assert parcel["status"] == ParcelStatus.OUT_FOR_DELIVERY
+    assert parcel["raw_status"] == "Bezorger is onderweg"
 
 
 async def test_transform_shipment_no_history_when_option_off(hass):

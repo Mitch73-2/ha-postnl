@@ -89,9 +89,20 @@ entities. Runtime-only; do not move it back into a platform.
   `_known_state`, reset only after a successful letters fetch.
 
 **Status mapping & per-parcel resilience**
-- **PostNL status is a Dutch human string, not an enum** — `map_parcel_status` uses
-  **ordered substring patterns (more specific first)**; the raw string lives on
-  `raw_status`, never `status`. Unmapped → `ParcelStatus.UNKNOWN`.
+- **`map_parcel_status` prefers `observationCode` over the Dutch human string.**
+  `delivered` short-circuits first; then `derive_observation_status` (`parcels.py`)
+  walks the same observation list `build_history` uses (milestone/meta
+  carry-forward included) and returns the current stage — this runs on
+  **every** active-path poll, independent of the opt-in `CONF_INCLUDE_HISTORY`
+  option (that option only gates whether the full timeline is *exposed* on
+  `history`; the underlying observations are always fetched and always
+  consulted for status). Only when that comes back `None` — no observations,
+  or none recognised — does it fall back to **ordered substring patterns
+  (more specific first)** against `statusPhase.message`. The raw string lives
+  on `raw_status`, never `status`, either way. Unmapped on both paths →
+  `ParcelStatus.UNKNOWN`. Changed after hki-parcels-card discussion #17: PostNL's
+  free text drifts wording (5 closed "unrecognised status" issues, all the same
+  root cause), `observationCode` doesn't have that failure mode.
 - **`receiver`/`weight`/`dimensions`**: weight/dimensions come from native g+mm
   converted to canonical kg+cm with the long edge as `length`; delivered parcels
   skip T&T → both `None`.
@@ -103,7 +114,9 @@ entities. Runtime-only; do not move it back into a platform.
   history `observationCode`), with an `issues/new` link; one-shot sets
   `_LOGGED_UNKNOWN_STATUSES` / `_LOGGED_UNKNOWN_OBSERVATION_CODES`.
 
-**History (opt-in, default OFF — `CONF_INCLUDE_HISTORY`)**
+**History (opt-in, default OFF — `CONF_INCLUDE_HISTORY`)** — gates only the
+`history` attribute; the observations it's built from are fetched and used for
+live status regardless (see above).
 - **Delivered parcels get history too** — the delivered short-circuit makes the
   extra T&T call via `_delivered_history`. **Non-fatal** (a `RequestException` →
   `None`), cached per barcode (one call per parcel ever); failures are NOT cached

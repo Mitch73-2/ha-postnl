@@ -121,7 +121,13 @@ def test_map_parcel_status_busy_delay_is_in_transit():
 
 
 def test_map_parcel_status_at_pickup_point_for_postnl_punt():
-    assert map_parcel_status({"status_message": "Pakket ligt klaar bij PostNL punt"}) == ParcelStatus.AT_PICKUP_POINT
+    # PostNL's real wording hyphenates "PostNL-punt" (#16) — this must match
+    # despite the pattern table using a space.
+    assert map_parcel_status({"status_message": "Pakket ligt klaar bij PostNL-punt"}) == ParcelStatus.AT_PICKUP_POINT
+
+
+def test_map_parcel_status_at_pickup_point_for_afgeleverd_op_postnl_punt():
+    assert map_parcel_status({"status_message": "Pakket afgeleverd op PostNL-punt"}) == ParcelStatus.AT_PICKUP_POINT
 
 
 def test_map_parcel_status_registered_for_aangemeld():

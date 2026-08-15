@@ -143,7 +143,10 @@ def map_parcel_status(parcel: dict) -> ParcelStatus:
     if parcel.get("delivered"):
         return ParcelStatus.DELIVERED
 
-    raw = (parcel.get("status_message") or "").strip().lower()
+    # PostNL writes the pickup-point phrase with a hyphen ("PostNL-punt"),
+    # not a space (#16) — normalise so the "postnl punt" patterns below
+    # match regardless of which one PostNL uses in a given message.
+    raw = (parcel.get("status_message") or "").strip().lower().replace("-", " ")
     if not raw:
         return ParcelStatus.UNKNOWN
 

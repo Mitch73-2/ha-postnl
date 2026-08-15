@@ -7,6 +7,8 @@
 
 A custom Home Assistant integration that tracks your PostNL shipments and announced MyMail letters.
 
+Based upon the original work by [@arjenbos](https://github.com/arjenbos/ha-postnl).
+
 ## Contents
 
 - [Features](#features)

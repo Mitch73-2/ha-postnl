@@ -55,8 +55,10 @@ _STATUS_PATTERNS: tuple[tuple[str, ParcelStatus], ...] = (
     ("gesorteerd", ParcelStatus.IN_TRANSIT),
     ("onderweg", ParcelStatus.IN_TRANSIT),
     ("klaar voor verzending", ParcelStatus.IN_TRANSIT),
+    ("je zending ligt op een sorteercentrum in land van bestemming", ParcelStatus.IN_TRANSIT),
     ("de grens over", ParcelStatus.IN_TRANSIT),
     ("aangekomen in het land van bestemming", ParcelStatus.IN_TRANSIT),
+    ("je zending is bezorgd bij de ontvanger", ParcelStatus.DELIVERED),
     ("bezorgd", ParcelStatus.DELIVERED),
     ("unknown", ParcelStatus.UNKNOWN),
 )
@@ -88,6 +90,7 @@ _OBSERVATION_CODE_MAP: dict[str, ParcelStatus] = {
     "J55": ParcelStatus.IN_TRANSIT,       # verwacht bij PostNL-punt
     "X01": ParcelStatus.IN_TRANSIT,       # zending is klaar voor verzending naar land van bestemming
     "X02": ParcelStatus.IN_TRANSIT,       # yes! je zending is aangekomen in het land van bestemming
+    "X08": ParcelStatus.IN_TRANSIT,       # je zending ligt op een sorteercentrum in land van bestemming
     "X19": ParcelStatus.IN_TRANSIT,       # je zending is de grens over
     # --- Real delivery delay / failed attempt: a genuine step back to transit ---
     "G01": ParcelStatus.IN_TRANSIT,       # bezorgmoment bijgewerkt — lukt vandaag niet
@@ -106,6 +109,7 @@ _OBSERVATION_CODE_MAP: dict[str, ParcelStatus] = {
     "I02": ParcelStatus.DELIVERED,        # afgehaald bij PostNL-punt
     "I05": ParcelStatus.DELIVERED,        # bezorgd in de brievenbus
     "I11": ParcelStatus.DELIVERED,        # zending is bezorgd in de brievenbus (variant of I05)
+    "Z01": ParcelStatus.DELIVERED,        # yes! Je zending is bezorgd bij de ontvanger
 }
 
 # Known notification / admin / data events that are NOT a movement milestone.

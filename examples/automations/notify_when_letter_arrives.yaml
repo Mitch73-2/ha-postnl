@@ -36,8 +36,8 @@ conditions:
 actions:
   - action: notify.mobile_app
     data:
-      title: "Brief aangekondigd"
-      message: "PostNL heeft een nieuwe brief aangekondigd."
+      title: "Letter announced"
+      message: "PostNL has announced a new letter."
       data:
         # iOS
         attachment:

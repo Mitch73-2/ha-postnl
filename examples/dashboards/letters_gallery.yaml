@@ -15,7 +15,7 @@ card_param: cards
 show_empty: false
 card:
   type: grid
-  title: Aangekondigde brieven
+  title: Announced letters
   columns: 3
   square: false
 filter:

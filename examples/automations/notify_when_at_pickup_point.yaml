@@ -19,13 +19,13 @@ triggers:
 actions:
   - action: notify.mobile_app
     data:
-      title: "Pakket ligt klaar bij PostNL Punt"
+      title: "Parcel ready at PostNL Point"
       message: >-
-        {{ trigger.event.data.sender or 'Onbekende afzender' }} ligt klaar
+        {{ trigger.event.data.sender or 'Unknown sender' }} is ready for pickup
         {% if trigger.event.data.pickup_point %}
-        bij {{ trigger.event.data.pickup_point }}.
+        at {{ trigger.event.data.pickup_point }}.
         {% else %}
-        bij een PostNL Punt.
+        at a PostNL Point.
         {% endif %}
       data:
         clickAction: "{{ trigger.event.data.url }}"

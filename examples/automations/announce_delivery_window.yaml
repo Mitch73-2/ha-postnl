@@ -1,8 +1,8 @@
 # Speak the expected delivery window for the next active parcel one
 # hour before the planned_from timestamp. Uses the Next delivery sensor
 # directly instead of an event — when PostNL has narrowed the window to
-# an hour you get a useful "om 14:00"; when only a day window is known
-# you'll hear "om 00:00" which is less helpful (consider extending the
+# an hour you get a useful "at 14:00"; when only a day window is known
+# you'll hear "at 00:00" which is less helpful (consider extending the
 # trigger to skip those cases).
 
 alias: "PostNL: announce next delivery window"
@@ -22,5 +22,5 @@ actions:
     data:
       entity_id: media_player.living_room
       message: >-
-        PostNL-pakket onderweg, verwacht rond
+        PostNL parcel on the way, expected around
         {{ as_datetime(states('sensor.postnl_next_delivery')).strftime('%H:%M') }}.
